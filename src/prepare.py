@@ -79,16 +79,21 @@ class TACODataProcessor:
         img_dir.mkdir(parents=True, exist_ok=True)
         label_dir.mkdir(parents=True, exist_ok=True)
         
+        # Processing 1 image at a time
         for img_id in tqdm(img_ids, desc=f"Processing {split_name}"):
             # Get image info
             img_info = coco.loadImgs(img_id)[0]
             img_width = img_info['width']
             img_height = img_info['height'] 
-            img_filename = img_info['file_name']                                            # format: batch_1/000010.jpg
+            img_filename = img_info['file_name']                                                        # format: batch_1/000010.jpg
             
-            # Copy and Validate image using OpenCV
-            src_img = self.taco_path / img_filename                                         # format: ../data/taco_data/ + batch_1/000010.jpg
-            dst_img = img_dir / img_filename.split("/")[1]                                  # format: ../data/taco_data_processed/{split_name}/images + 000010.jpg ; REMEMBER THAT HERE WE ARE REMOVING THE BATCHES IN OUTPUT DIRECTORY
+            # Currently processing image info
+            img_batch = img_filename.split('/')[0]
+            img_name = img_filename.split('/')[1]
+
+            # Copy and Validate image using OpenCV                                                      
+            src_img = self.taco_path / img_filename                                                     # format: ../data/taco_data/ + batch_1/000010.jpg
+            dst_img = img_dir / f"{img_batch}_{img_name}"                                               # format: ../data/taco_data_processed/{split_name}/images + batch_1_000010.jpg ; REMEMBER THAT HERE WE ARE REMOVING THE BATCHES IN OUTPUT DIRECTORY
             if src_img.exists():
                 img = cv2.imread(str(src_img))
 
@@ -113,7 +118,8 @@ class TACODataProcessor:
                     yolo_annotations.append(yolo_ann)
             
             # Save label file
-            label_file = label_dir / f"{Path(img_filename.split('/')[1]).stem}.txt"         # format: 000010.jpg ; REMEMBER THAT HERE WE ARE REMOVING THE BATCHES
+            label_file_name = f"{img_batch}_{img_name}"
+            label_file = label_dir / f"{Path(label_file_name).stem}.txt"                    
             with open(label_file, 'w') as f:
                 f.write('\n'.join(yolo_annotations))
 

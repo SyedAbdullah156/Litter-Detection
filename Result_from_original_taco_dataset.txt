@@ -1,0 +1,53 @@
+Drawing Chart between YOLOv8s (Small) vs. YOLOv8n (Nano) trained on original taco-dataset converted to yolo format.
+
+1. How to Read the Lines
+
+    The Blue Line (Top Start): This represents yolov8s.pt (the Small model).
+        Note the color: It is dark blue because its final value (train/cls_loss) is low (~0.7).
+
+    The Red Line (Bottom Start): This represents yolov8n.pt (the Nano model).
+        Note the color: It is dark red because its final value is high (~1.2).
+
+2. Parameter-by-Parameter Analysis
+Here is what happened in your experiment, moving from left (Validation) to right (Training).
+
+A. Validation Losses (val/box_loss, val/cls_loss, val/dfl_loss)
+
+These measure how "confused" the model is on new data (images it hasn't seen). Lower is Better.
+
+    Nano (Red): ~1.12 / 2.98 / 1.13 (Winner)
+    Small (Blue): ~1.14 / 3.20 / 1.15 (Loser)
+    Meaning: The Nano model is actually "less wrong" on new data than the Small model.
+
+    Why? The Small model is Overfitting. It has memorized the training images so well that it gets confused when shown a validation image that doesn't look exactly like the training set.
+
+B. Performance Metrics (mAP, Recall, Precision)
+
+These measure how well the model actually detects trash. Higher is Better.
+
+    Nano (Red): mAP50: ~0.11 | Recall: ~0.12 | Precision: ~0.43
+    Small (Blue): mAP50: ~0.13 | Recall: ~0.15 | Precision: ~0.44 (Winner)
+    Meaning: Even though the Small model is "confused" (higher loss), it is still smarter. Its larger brain allows it to find more objects (Recall 15% vs 12%) and be slightly more accurate (Precision 44% vs 43%).
+
+    The Trade-off: You paid a high price in computing power (Small is slower) for a very tiny gain in mAP (11% -> 13%).
+
+C. Training Losses (train/box_loss, train/cls_loss)
+
+These measure how well the model memorized the study material. Lower is Better.
+
+    Nano (Red): ~0.86 / 1.21 (Loser)
+    Small (Blue): ~0.76 / 0.72 (Huge Winner)
+
+    Meaning: This is the most important part of the chart.
+        The Small (Blue) model learned the training data perfectly (0.72).
+        The Nano (Red) model struggled to learn it (1.21).
+
+3. The Final Diagnosis
+
+This chart confirms the "Overfitting" theory perfectly.
+    YOLOv8s (Blue) has a big brain. It smashed the training data (Low train loss). But because the dataset is confusing (60 classes, bad labels), it memorized "noise." When you showed it the Validation set, it performed poorly (High val loss), only managing a tiny improvement in mAP.
+    YOLOv8n (Red) has a small brain. It struggled to even learn the training data (High train loss).
+
+What this proves: Increasing the model size (Nano -> Small) did not solve the problem. It just made the model memorize the bad data faster.
+
+Your Action Plan remains the same: You cannot "model" your way out of this. You must fix the data (map the classes from 60 down to 5) before training again. Once you do that, both the Red and Blue lines will drop significantly in loss and jump up in mAP.
