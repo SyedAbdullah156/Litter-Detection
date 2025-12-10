@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # Update these paths to files you want to test
     TEST_IMAGE = "/home/luc/ai-ml/MLOPS/PROJECT/data/taco_dataset_processed_modified/test/images/000022_JPG_jpg.rf.99a53a58918b5a5552244ad533a6b296.jpg"
     
-    TEST_VIDEO = "/home/luc/ai-ml/MLOPS/PROJECT/data/test_videos/41869-431407027_small.mp4"
+    TEST_VIDEO = "/home/luc/ai-ml/MLOPS/PROJECT/data/test_videos/vecteezy_river-garbage-pollution_2015570.mp4"
 
     # Verify model exists
     if not os.path.exists(MODEL_WEIGHTS):
@@ -85,20 +85,20 @@ if __name__ == "__main__":
 
     # --- 3. RUN INFERENCE (Uncomment the mode you want) ---
 
-    # # === MODE A: Single Image ===
-    if os.path.exists(TEST_IMAGE):
-        print(f"Running inference on image: {TEST_IMAGE}")
-        results = detector.detect_image(TEST_IMAGE)
-        print(f"Image saved to: {results[0].save_dir}")
-    else:
-        print(f"Warning: Test image '{TEST_IMAGE}' not found.")
-
-    # # === MODE B: Video File ===
-    # if os.path.exists(TEST_VIDEO):
-    #     print(f"🎥 Running inference on video: {TEST_VIDEO}")
-    #     detector.detect_video(TEST_VIDEO)
+    # # # === MODE A: Single Image ===
+    # if os.path.exists(TEST_IMAGE):
+    #     print(f"Running inference on image: {TEST_IMAGE}")
+    #     results = detector.detect_image(TEST_IMAGE)
+    #     print(f"Image saved to: {results[0].save_dir}")
     # else:
-    #     print(f"Warning: Test video '{TEST_VIDEO}' not found.")
+    #     print(f"Warning: Test image '{TEST_IMAGE}' not found.")
+
+    # === MODE B: Video File ===
+    if os.path.exists(TEST_VIDEO):
+        print(f"🎥 Running inference on video: {TEST_VIDEO}")
+        detector.detect_video(TEST_VIDEO)
+    else:
+        print(f"Warning: Test video '{TEST_VIDEO}' not found.")
 
     # === MODE C: Live Webcam ===
     # print("Starting Webcam Inference... Press 'q' in the window to quit.")
