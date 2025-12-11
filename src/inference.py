@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # Update these paths to files you want to test
     TEST_IMAGE = "/home/luc/ai-ml/MLOPS/PROJECT/data/taco_dataset_processed_modified/test/images/000022_JPG_jpg.rf.99a53a58918b5a5552244ad533a6b296.jpg"
     
-    TEST_VIDEO = "/home/luc/ai-ml/MLOPS/PROJECT/data/test_videos/vecteezy_river-garbage-pollution_2015570.mp4"
+    TEST_VIDEO = "/home/luc/ai-ml/MLOPS/PROJECT/data/test_videos/19615-303404191_tiny.mp4"
 
     # Verify model exists
     if not os.path.exists(MODEL_WEIGHTS):

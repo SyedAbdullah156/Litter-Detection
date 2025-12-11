@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Litter Detection</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h1>🗑️ Litter Detection</h1>
+            
+            <!-- Upload Section -->
+            <div class="upload-box">
+                <input type="file" id="fileInput" accept="image/*,video/*">
+                <label for="fileInput" class="upload-label">
+                    <span class="upload-icon">📁</span>
+                    <span>Choose Image or Video</span>
+                </label>
+                <p class="file-name" id="fileName"></p>
+            </div>
+
+            <!-- Model Selection -->
+            <div class="model-select">
+                <label>Select Model:</label>
+                <select id="modelSelect">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+
+            <!-- Detect Button -->
+            <button id="detectBtn" class="detect-btn" disabled>
+                Run Detection
+            </button>
+
+            <!-- Loading -->
+            <div id="loading" class="loading">🔄 Processing...</div>
+
+            <!-- Results -->
+            <div id="results" class="results" style="display:none;"></div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <div id="previewContainer" class="preview-container empty">
+                <p>Upload an image or video to begin</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'http://localhost:8000';
+        let selectedFile = null;
+        let currentDetections = null;
+        let isVideo = false;
+        let videoElement = null;
+        let canvas = null;
+        let ctx = null;
+        let animationFrameId = null;
+        let detectionMap = {};
+
+        // Load models
+        async function loadModels() {
+            try {
+                const res = await fetch(`${API}/models`);
+                const data = await res.json();
+                const select = document.getElementById('modelSelect');
+                select.innerHTML = '<option value="">Select Model</option>';
+                data.models.forEach(m => {
+                    select.innerHTML += `<option value="${m.name}">${m.name} (${m.stage})</option>`;
+                });
+            } catch (err) {
+                console.error('Failed to load models:', err);
+                document.getElementById('modelSelect').innerHTML = 
+                    '<option value="yolov8n">yolov8n (Default)</option>';
+            }
+        }
+
+        // File selection
+        document.getElementById('fileInput').onchange = (e) => {
+            selectedFile = e.target.files[0];
+            if (selectedFile) {
+                document.getElementById('fileName').textContent = selectedFile.name;
+                isVideo = selectedFile.type.startsWith('video');
+                showPreview(selectedFile);
+                updateButton();
+                document.getElementById('results').style.display = 'none';
+            }
+        };
+
+        // Model selection
+        document.getElementById('modelSelect').onchange = updateButton;
+
+        // Show preview
+        function showPreview(file) {
+            const container = document.getElementById('previewContainer');
+            const url = URL.createObjectURL(file);
+            container.classList.remove('empty');
+            
+            if (file.type.startsWith('image')) {
+                container.innerHTML = `
+                    <h3>Image Preview</h3>
+                    <div class="canvas-wrapper">
+                        <canvas id="annotatedCanvas"></canvas>
+                    </div>
+                `;
+                canvas = document.getElementById('annotatedCanvas');
+                ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = url;
+            } else {
+                container.innerHTML = `
+                    <h3>Video Preview</h3>
+                    <div class="video-display">
+                        <canvas id="videoCanvas"></canvas>
+                    </div>
+                    <div class="video-controls">
+                        <button id="playPauseBtn">▶ Play</button>
+                        <button id="restartBtn">↻ Restart</button>
+                    </div>
+                    <div class="video-info" id="videoInfo">Upload and run detection to see results</div>
+                `;
+                
+                canvas = document.getElementById('videoCanvas');
+                ctx = canvas.getContext('2d');
+                
+                // Create hidden video element for playback
+                videoElement = document.createElement('video');
+                videoElement.src = url;
+                videoElement.preload = 'metadata';
+                videoElement.muted = true; // Ensure no audio interference
+                
+                videoElement.onloadedmetadata = () => {
+                    // Set canvas to exact video dimensions
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    
+                    console.log('Video dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
+                    
+                    // Wait for video to be fully ready
+                    videoElement.currentTime = 0;
+                    videoElement.onseeked = () => {
+                        drawVideoFrame();
+                        videoElement.onseeked = null;
+                    };
+                };
+                
+                // Setup controls
+                document.getElementById('playPauseBtn').onclick = togglePlayPause;
+                document.getElementById('restartBtn').onclick = restartVideo;
+            }
+        }
+
+        // Update button state
+        function updateButton() {
+            const btn = document.getElementById('detectBtn');
+            const model = document.getElementById('modelSelect').value;
+            btn.disabled = !selectedFile || !model;
+        }
+
+        // Run detection
+        document.getElementById('detectBtn').onclick = async () => {
+            const model = document.getElementById('modelSelect').value;
+            if (!selectedFile || !model) return;
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('model_name', model);
+
+                const res = await fetch(`${API}/predict`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+                currentDetections = data.detections;
+                
+                showResults(data);
+                
+                if (isVideo) {
+                    setupVideoDetections(data.detections);
+                } else {
+                    drawImageAnnotations(selectedFile, data.detections);
+                }
+                
+            } catch (err) {
+                const results = document.getElementById('results');
+                results.style.display = 'block';
+                results.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        };
+
+        // Draw annotations on image
+        function drawImageAnnotations(imageFile, detections) {
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                detections.forEach(det => {
+                    const [x1, y1, x2, y2] = det.bbox;
+                    
+                    // Draw bounding box
+                    ctx.strokeStyle = '#00FF00';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                    
+                    // Draw label background
+                    const label = `${det.class} ${(det.confidence * 100).toFixed(1)}%`;
+                    ctx.font = 'bold 16px Arial';
+                    const textMetrics = ctx.measureText(label);
+                    const textWidth = textMetrics.width;
+                    
+                    ctx.fillStyle = '#00FF00';
+                    ctx.fillRect(x1, y1 - 25, textWidth + 10, 25);
+                    
+                    // Draw label text
+                    ctx.fillStyle = '#000000';
+                    ctx.fillText(label, x1 + 5, y1 - 7);
+                });
+            };
+            img.src = URL.createObjectURL(imageFile);
+        }
+
+        // Setup video detections
+        function setupVideoDetections(detections) {
+            // Group detections by frame
+            detectionMap = {};
+            detections.forEach(det => {
+                if (!detectionMap[det.frame]) {
+                    detectionMap[det.frame] = [];
+                }
+                detectionMap[det.frame].push(det);
+            });
+            
+            // Update info
+            const info = document.getElementById('videoInfo');
+            info.innerHTML = `
+                <strong>Detections:</strong> ${detections.length} objects across ${Object.keys(detectionMap).length} frames
+            `;
+            
+            // Draw first frame with detections
+            drawVideoFrame();
+        }
+
+        // Draw video frame with detections
+        function drawVideoFrame() {
+            if (!videoElement || !canvas || !ctx) return;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw current video frame at exact size (no scaling)
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            
+            // If we have detections, draw them
+            if (Object.keys(detectionMap).length > 0) {
+                const fps = 30; // Match the fps used in backend
+                const currentFrame = Math.floor(videoElement.currentTime * fps);
+                
+                // Find detections for current frame or nearest frame
+                let frameDets = detectionMap[currentFrame];
+                if (!frameDets) {
+                    const frames = Object.keys(detectionMap).map(Number);
+                    if (frames.length > 0) {
+                        const nearest = frames.reduce((prev, curr) => 
+                            Math.abs(curr - currentFrame) < Math.abs(prev - currentFrame) ? curr : prev
+                        );
+                        frameDets = detectionMap[nearest] || [];
+                    }
+                }
+                
+                // Draw detections for this frame
+                if (frameDets && frameDets.length > 0) {
+                    frameDets.forEach(det => {
+                        const [x1, y1, x2, y2] = det.bbox;
+                        
+                        // Use coordinates exactly as provided by backend
+                        const boxWidth = x2 - x1;
+                        const boxHeight = y2 - y1;
+                        
+                        // Draw bounding box
+                        ctx.strokeStyle = '#00FF00';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(x1, y1, boxWidth, boxHeight);
+                        
+                        // Draw label background
+                        const label = `${det.class} ${(det.confidence * 100).toFixed(1)}%`;
+                        ctx.font = 'bold 16px Arial';
+                        const textMetrics = ctx.measureText(label);
+                        const textWidth = textMetrics.width;
+                        const textHeight = 20;
+                        
+                        // Position label above box
+                        const labelY = y1 > 25 ? y1 - 5 : y1 + boxHeight + 20;
+                        
+                        ctx.fillStyle = '#00FF00';
+                        ctx.fillRect(x1, labelY - textHeight, textWidth + 10, textHeight);
+                        
+                        ctx.fillStyle = '#000000';
+                        ctx.fillText(label, x1 + 5, labelY - 5);
+                        
+                        // Debug: log coordinates to verify
+                        if (Math.random() < 0.01) { // Log occasionally to avoid spam
+                            console.log('Frame:', currentFrame, 'Box:', {x1, y1, x2, y2}, 'Canvas:', canvas.width, 'x', canvas.height);
+                        }
+                    });
+                }
+            }
+            
+            // Continue animation if playing
+            if (!videoElement.paused && !videoElement.ended) {
+                animationFrameId = requestAnimationFrame(drawVideoFrame);
+            }
+        }
+
+        // Toggle play/pause
+        function togglePlayPause() {
+            if (!videoElement) return;
+            
+            const btn = document.getElementById('playPauseBtn');
+            if (videoElement.paused) {
+                videoElement.play();
+                btn.textContent = '⏸ Pause';
+                drawVideoFrame();
+            } else {
+                videoElement.pause();
+                btn.textContent = '▶ Play';
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+            }
+        }
+
+        // Restart video
+        function restartVideo() {
+            if (!videoElement) return;
+            videoElement.currentTime = 0;
+            drawVideoFrame();
+        }
+
+        // Show results
+        function showResults(data) {
+            const results = document.getElementById('results');
+            results.style.display = 'block';
+            
+            if (!data.detections || data.detections.length === 0) {
+                results.innerHTML = '<p>No litter detected</p>';
+                return;
+            }
+
+            const uniqueClasses = [...new Set(data.detections.map(d => d.class))];
+            
+            let html = `<h3>Found ${uniqueClasses.length} object types (${data.detections.length} total detections):</h3>`;
+            
+            const classCounts = {};
+            data.detections.forEach(det => {
+                classCounts[det.class] = (classCounts[det.class] || 0) + 1;
+            });
+            
+            Object.entries(classCounts).forEach(([className, count], i) => {
+                const avgConf = data.detections
+                    .filter(d => d.class === className)
+                    .reduce((sum, d) => sum + d.confidence, 0) / count;
+                
+                html += `
+                    <div class="detection">
+                        <strong>${i+1}. ${className}</strong>
+                        <span>${count} instance(s) - ${(avgConf * 100).toFixed(1)}%</span>
+                    </div>
+                `;
+            });
+            
+            html += `<p class="info">Processing time: ${data.processing_time.toFixed(2)}s</p>`;
+            results.innerHTML = html;
+        }
+
+        // Initialize
+        loadModels();
+    </script>
+</body>
+</html>

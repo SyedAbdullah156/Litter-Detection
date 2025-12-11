@@ -18,3 +18,5 @@ runs/**/*.JPG
 runs/**/*.png
 runs/**/*.jpeg
 runs/**/*.pt
+
+model-service/**/*.pt
