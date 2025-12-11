@@ -16,6 +16,7 @@ This repository contains all code, experiments, datasets, and artifacts used for
 - **DagsHub** as the central hub connecting Git, DVC, and MLflow  
 
 ### Platforms Used
+- **Docker** for making whole pipeline in a containerized manner.
 - **Kaggle** notebooks for faster GPU-based training  
 - **Local Machine** for development and most training runs  
 - **Overleaf** for writing and managing the final project report  
