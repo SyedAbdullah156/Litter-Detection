@@ -19,6 +19,7 @@ app.add_middleware(
 
 # Config
 MODEL_SERVICE = os.getenv("MODEL_SERVICE_URL", "http://model-service:8001")
+print(f"Model Service URL: {MODEL_SERVICE}")  # Debug on startup
 
 @app.get("/")
 def home():
@@ -62,19 +63,44 @@ async def predict(file: UploadFile = File(...), model_name: str = Form(...)):
         files = {"file": (file.filename, content, file.filename.split('.')[-1])}
         data = {"model_name": model_name}
         
+        # Make request to model service
+        print("📤 Sending request to model service...")
         response = requests.post(
-            f"http://localhost:8001/predict",
+            f"{MODEL_SERVICE}/predict",
             files=files,
             data=data,
-            timeout=60
+            timeout=120  # Increased timeout for video processing
         )
         
-        if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail=response.text)
+        print(f"📥 Response status: {response.status_code}")
         
-        return response.json()
+        if response.status_code != 200:
+            print(f"❌ Error response: {response.text}")
+            raise HTTPException(
+                status_code=response.status_code, 
+                detail=f"Model service error: {response.text}"
+            )
+        
+        result = response.json()
+        print(f"✅ Success: {len(result.get('detections', []))} detections")
+        return result
+    
+    except requests.exceptions.ConnectionError as e:
+        print(f"❌ Connection error: {e}")
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Cannot connect to model service at {MODEL_SERVICE}"
+        )
+    
+    except requests.exceptions.Timeout as e:
+        print(f"❌ Timeout error: {e}")
+        raise HTTPException(
+            status_code=504, 
+            detail="Model service request timed out"
+        )
     
     except Exception as e:
+        print(f"❌ Unexpected error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
