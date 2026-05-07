@@ -1,5 +1,7 @@
 # Litter Detection
 
+This repository does not contain dvc. Whole data version control can be obtained from this repository https://dagshub.com/abdullahsyed2005/litter-detection. 
+
 This repository contains all code, experiments, datasets, and artifacts used for my litter-detection project based on the TACO dataset and YOLO object detection models. The workflow combines dataset preprocessing, model training, experiment tracking, and inference pipelines.
 
 ## Technologies and Tools Used
@@ -32,10 +34,6 @@ Project development also used Kaggle notebooks:
 ## Project Report
 Full Overleaf project report:  
 https://www.overleaf.com/read/wkhgswgcbwny#bc0564
-
-## Plagiarism Report
-The official plagiarism report from the university library is pending.  
-A temporary automated report from https://paperpal.com/ has been uploaded and will be replaced once the official report is issued.
 
 ## Inference Outputs
 All inference videos, images, predictions, and processed data are tracked using **DVC** and stored on **DagsHub**. These can be accessed directly through the repository.
